@@ -1,0 +1,9 @@
+Flask
+python-dotenv
+requests
+pydub
+simpleaudio
+openai
+gTTS
+pydub
+google-generativeai
