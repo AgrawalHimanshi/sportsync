@@ -11,39 +11,54 @@ class CommentaryGenerator:
     def generate_prompt(self, event: dict, user_taste_profile: dict) -> str:
         """
         Crafts a detailed prompt for the LLM based on the game event
-        and the user's preferred commentary style.
+        and the user's preferred commentary style. Instructs the LLM to use actual player/team names and avoid placeholders.
         """
         style = user_taste_profile.get("style", "balanced")
         focus_areas = user_taste_profile.get("focus", ["general sports action"])
 
-        base_prompt = f"A sports commentator is covering a live {event['sport']} match."
+        # Gather all event context for the LLM
+        context_lines = [
+            f"Event type: {event.get('event_type', '')}",
+            f"Time: {event.get('time', '')} seconds",
+            f"Score: {event.get('score', '')}",
+            f"Player: {event.get('player', '')}",
+            f"Team: {event.get('team', '')}",
+            f"Outcome: {event.get('outcome', '')}",
+            f"Metadata: {event.get('metadata', {})}",
+            f"Taste Profile: {user_taste_profile.get('style', '')}"
+        ]
+        context_str = "\n".join(context_lines)
         event_description = self._get_event_description(event)
 
-        # Tailor the prompt based on the determined style
+        # Refined instruction for the LLM
+        instruction = (
+            "Generate a live football commentary for the following event, using the provided match context and the user's taste profile. "
+            "Be specific and use the actual player and team names from the data. Avoid placeholders. Make the commentary engaging and natural, as if spoken by a real commentator. "
+            "If a field is missing, just omit it from the commentary. Do not use placeholders like [Team Name] or [Player's Name]."
+        )
+
         if style == "analytical":
-            prompt = (
-                f"{base_prompt} Provide highly analytical commentary for this event: '{event_description}'. "
-                f"Focus on {', '.join(focus_areas)}. Discuss strategy, statistics, efficiency, or historical context. "
+            style_instruction = (
+                "Use a highly analytical style. Focus on {focus}. Discuss strategy, statistics, efficiency, or historical context. "
                 "Keep it concise, professional, and insightful. Use a calm, composed tone."
-            )
+            ).format(focus=", ".join(focus_areas))
         elif style == "emotional":
-            prompt = (
-                f"{base_prompt} Provide passionate and emotional commentary for this event: '{event_description}'. "
-                f"Focus on the drama, player narratives, and the impact on the game's momentum. "
+            style_instruction = (
+                "Use a passionate and emotional style. Focus on the drama, player narratives, and the impact on the game's momentum. "
                 "Convey excitement, tension, or disappointment naturally. Use an enthusiastic, high-energy tone."
             )
         elif style == "humorous":
-            prompt = (
-                f"{base_prompt} Provide lighthearted and humorous commentary for this event: '{event_description}'. "
-                f"Incorporate a playful tone, witty observations, or a relevant, funny analogy. "
+            style_instruction = (
+                "Use a lighthearted and humorous style. Incorporate a playful tone, witty observations, or a relevant, funny analogy. "
                 "Keep it entertaining and concise. Use a jovial, slightly cheeky tone."
             )
         else: # Balanced/Default
-            prompt = (
-                f"{base_prompt} Provide balanced commentary for this event: '{event_description}'. "
-                "Focus on the key action, player involvement, and immediate impact. "
+            style_instruction = (
+                "Use a balanced style. Focus on the key action, player involvement, and immediate impact. "
                 "Keep it engaging and to the point. Use a standard, engaging sports commentary tone."
             )
+
+        prompt = f"{instruction}\n\nMatch/Event Context:\n{context_str}\n\nEvent Description: {event_description}\n\n{style_instruction}"
         return prompt
 
     def _get_event_description(self, event: dict) -> str:

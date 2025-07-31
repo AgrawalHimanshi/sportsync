@@ -169,7 +169,7 @@
 
         <div class="section">
             <label>2. Start Simulated Game:</label>
-            <button onclick="startGame()" id="startGameBtn" disabled>Start Game Commentary</button>
+            <button type="button" onclick="startGame()" id="startGameBtn" disabled>Start Game Commentary</button>
             <div id="loadingIndicator" class="loading-indicator">
                 Generating commentary... Please wait.
             </div>
@@ -222,29 +222,43 @@
             }
         }
 
-        async function startGame() {
-            startGameBtn.disabled = true;
-            logDiv.innerHTML = ''; // Clear previous log
-            appendLog('Game starting... (Commentary will appear live)');
-            loadingIndicator.classList.add('active'); // Show loading indicator
 
-            // Use SSE for live updates
+        function startGame() {
+            startGameBtn.disabled = true;
+            logDiv.innerHTML = '';
+            appendLog('Game starting... (Commentary will appear live)');
+            loadingIndicator.classList.add('active');
+
             const evtSource = new EventSource('/start_game');
+
             evtSource.onmessage = function(event) {
                 if (event.data) {
                     const entry = JSON.parse(event.data);
                     appendLog(`[${entry.time}s] Event: ${entry.event_type} - Commentary (${entry.profile_style}): "${entry.commentary}"`);
-                    // Optionally, scroll to bottom
                     logDiv.scrollTop = logDiv.scrollHeight;
                 }
             };
-            evtSource.onerror = function(err) {
-                appendLog('Game ended or connection lost.');
+
+            evtSource.addEventListener('end', function(event) {
+                appendLog('Game ended.');
                 loadingIndicator.classList.remove('active');
                 startGameBtn.disabled = false;
                 evtSource.close();
-            };
-            // Optionally, close after last event (if you know the last time)
+            });
+
+            evtSource.addEventListener('error', function(event) {
+                let msg = 'Game ended or connection lost.';
+                if (event.data) {
+                    try {
+                        const err = JSON.parse(event.data);
+                        if (err.error) msg = err.error;
+                    } catch {}
+                }
+                appendLog(msg);
+                loadingIndicator.classList.remove('active');
+                startGameBtn.disabled = false;
+                evtSource.close();
+            });
         }
 
         function appendLog(message) {
